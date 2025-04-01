@@ -1,4 +1,3 @@
-
 // Game variables
 let player = {
   width: 50,
@@ -23,6 +22,12 @@ let bulletSpeed = 5; // Pixels per frame
 let lastShotTime = 0; // Track when the player last fired
 let shotInterval = 500; // Time between shots (milliseconds) - 0.5 seconds
 
+// Survivor variables
+let survivors = [];
+let survivorSpawnChance = 0.2; // 20% chance to spawn a survivor
+let maxFollowers = 3;
+let followers = [];
+
 // Debug variables
 let debugMode = true;
 let frameCounter = 0;
@@ -38,19 +43,19 @@ function setup() {
   let screenHeight = min(windowHeight, 896); // iPhone-like height max
   let canvas = createCanvas(screenWidth, screenHeight);
   canvas.parent('game-container');
-  
+
   // Calculate responsive values
   laneWidth = screenWidth / 2;
   lanes = [laneWidth/2, laneWidth + laneWidth/2]; // Center of each lane
   playerYPosition = screenHeight * 0.8; // Position at bottom 20%
-  
+
   // Initialize lane Y positions to allow zombies to spawn immediately
   laneLastZombieY = [screenHeight + 100, screenHeight + 100];
-  
+
   // Set basic drawing properties
   rectMode(CENTER);
   textAlign(CENTER, CENTER);
-  
+
   if (debugMode) {
     console.log("Game initialized");
     console.log("Canvas size:", screenWidth, "x", screenHeight);
@@ -64,12 +69,12 @@ function windowResized() {
   let screenWidth = min(windowWidth, 414); // iPhone-like width max
   let screenHeight = min(windowHeight, 896); // iPhone-like height max
   resizeCanvas(screenWidth, screenHeight);
-  
+
   // Recalculate responsive values
   laneWidth = screenWidth / 2;
   lanes = [laneWidth/2, laneWidth + laneWidth/2]; // Center of each lane
   playerYPosition = screenHeight * 0.8;
-  
+
   if (debugMode) {
     console.log("Window resized");
     console.log("New canvas size:", screenWidth, "x", screenHeight);
@@ -80,7 +85,7 @@ function windowResized() {
 function draw() {
   // Clear the background on each frame
   background(50); // Dark gray background
-  
+
   // Increment frame counter for debugging
   frameCounter++;
   if (debugMode && frameCounter % 60 === 0) { // Log every 60 frames (approx 1 second)
@@ -88,25 +93,25 @@ function draw() {
     console.log("Player position:", lanes[player.laneIndex], playerYPosition);
     console.log("Active zombies:", zombies.length);
   }
-  
+
   // Draw the lanes
   drawLanes();
-  
+
   // Update and draw zombies
   updateZombies();
-  
+
   // Draw the player
   drawPlayer();
-  
-  // Check if it's time to spawn a new zombie
+
+  // Check if it's time to spawn a new zombie or survivor
   controlledZombieSpawn();
-  
+
   // Update and draw bullets
   updateBullets();
-  
+
   // Auto-fire bullets at regular intervals
   autoFireBullet();
-  
+
   // Show debug info on screen
   if (debugMode) {
     displayDebugInfo();
@@ -116,7 +121,7 @@ function draw() {
 // Auto-fire bullets at regular intervals
 function autoFireBullet() {
   let currentTime = millis();
-  
+
   // Check if enough time has passed since the last shot
   if (currentTime - lastShotTime >= shotInterval) {
     // Create a new bullet at the player's position
@@ -127,11 +132,11 @@ function autoFireBullet() {
       height: 20,
       laneIndex: player.laneIndex
     };
-    
+
     // Add bullet to the array
     bullets.push(bullet);
     lastShotTime = currentTime;
-    
+
     if (debugMode) console.log("Player fired bullet in lane", player.laneIndex);
   }
 }
@@ -141,13 +146,13 @@ function updateBullets() {
   for (let i = bullets.length - 1; i >= 0; i--) {
     // Move the bullet up
     bullets[i].y -= bulletSpeed;
-    
+
     // Draw the bullet
     drawBullet(bullets[i]);
-    
+
     // Check for collisions with zombies
     let bulletHitZombie = checkBulletZombieCollision(bullets[i]);
-    
+
     // Check if the bullet is off-screen or hit a zombie
     if (bullets[i].y < -bullets[i].height || bulletHitZombie) {
       // Remove this bullet from the array
@@ -163,7 +168,7 @@ function updateBullets() {
 function checkBulletZombieCollision(bullet) {
   for (let i = zombies.length - 1; i >= 0; i--) {
     let zombie = zombies[i];
-    
+
     // Only check collisions in the same lane
     if (zombie.laneIndex === bullet.laneIndex) {
       // Calculate collision based on rectangle overlap
@@ -173,20 +178,20 @@ function checkBulletZombieCollision(bullet) {
       ) {
         // Collision detected! Destroy the zombie
         if (debugMode) console.log("Bullet hit zombie in lane", zombie.laneIndex);
-        
+
         // Increment score and zombies destroyed count
         score += 10;
         zombiesDestroyed++;
-        
+
         // Remove the zombie
         zombies.splice(i, 1);
-        
+
         // Return true to indicate collision occurred
         return true;
       }
     }
   }
-  
+
   // No collision detected
   return false;
 }
@@ -201,19 +206,19 @@ function drawBullet(bullet) {
 
 function drawLanes() {
   // Draw a road with 2 lanes that fill the screen width
-  
+
   // Fill the road
   fill(70); // Dark gray for road background
   noStroke();
   rect(width/2, height/2, width, height);
-  
+
   // Draw center divider between lanes
   stroke(255, 255, 0); // Yellow
   strokeWeight(10);
   setLineDash([30, 20]); // Dashed line
   line(width/2, 0, width/2, height);
   setLineDash([]); // Reset to solid line
-  
+
   // Draw outer lane borders
   stroke(255); // White
   strokeWeight(5);
@@ -232,10 +237,13 @@ function drawPlayer() {
   // Draw the player at the correct lane position
   fill(0, 150, 255); // Blue player
   noStroke();
-  
+
   // Position player at the current lane
   rect(lanes[player.laneIndex], playerYPosition, player.width, player.height);
-  
+
+  // Draw followers behind the player
+  drawFollowers();
+
   if (debugMode) {
     // Show player bounds
     stroke(255, 0, 0);
@@ -267,7 +275,7 @@ function touchStarted() {
     player.laneIndex = 1; // Right lane
     if (debugMode) console.log("Player moved to right lane via touch");
   }
-  
+
   // Prevent default behavior
   return false;
 }
@@ -275,21 +283,21 @@ function touchStarted() {
 // Control zombie spawning to ensure player has enough reaction time
 function controlledZombieSpawn() {
   let currentTime = millis();
-  
+
   // Check if minimum time has passed since last spawn
   if (currentTime - lastSpawnTime < minSpawnInterval) {
     return;
   }
-  
+
   // Determine which lane to spawn in (or if we should spawn at all)
   let lane0Clear = isLaneClearForSpawn(0);
   let lane1Clear = isLaneClearForSpawn(1);
-  
+
   // If both lanes are occupied with zombies too close to the top, don't spawn
   if (!lane0Clear && !lane1Clear) {
     return;
   }
-  
+
   // Choose a lane that's clear for spawning
   let laneIndex;
   if (lane0Clear && lane1Clear) {
@@ -299,9 +307,16 @@ function controlledZombieSpawn() {
     // Only one lane is clear, choose that one
     laneIndex = lane0Clear ? 0 : 1;
   }
-  
-  // Spawn the zombie
-  spawnZombieInLane(laneIndex);
+
+  // Decide whether to spawn a zombie or a survivor
+  if (random() < survivorSpawnChance) {
+    // Spawn a survivor pickup
+    spawnSurvivorInLane(laneIndex);
+    if (debugMode) console.log("Spawned survivor pickup in lane", laneIndex);
+  } else {
+    // Spawn a zombie
+    spawnZombieInLane(laneIndex);
+  }
   lastSpawnTime = currentTime;
 }
 
@@ -311,7 +326,7 @@ function isLaneClearForSpawn(laneIndex) {
   if (laneLastZombieY[laneIndex] >= height * 0.5 || laneLastZombieY[laneIndex] > height) {
     return true;
   }
-  
+
   // If zombies exist but are still near top, don't spawn in this lane
   return false;
 }
@@ -325,26 +340,41 @@ function spawnZombieInLane(laneIndex) {
     height: 70,
     laneIndex: laneIndex // Store the lane index (0 or 1)
   };
-  
+
   zombies.push(zombie);
   laneLastZombieY[laneIndex] = zombie.y; // Update the Y position tracker
-  
+
   if (debugMode) console.log("Spawned zombie in lane", laneIndex);
 }
+
+// Spawn a survivor pickup
+function spawnSurvivorInLane(laneIndex) {
+  let survivor = {
+    x: lanes[laneIndex],
+    y: -50, // Start above the screen
+    width: 30,
+    height: 60,
+    laneIndex: laneIndex,
+    collected: false
+  };
+  survivors.push(survivor);
+  if (debugMode) console.log("Survivor spawned in lane:", laneIndex);
+}
+
 
 // Update all zombies and remove those that go off-screen
 function updateZombies() {
   // First update each lane's furthest zombie Y position
   updateLaneYPositions();
-  
+
   // Move zombies down and draw them
   for (let i = zombies.length - 1; i >= 0; i--) {
     // Move the zombie down
     zombies[i].y += zombieSpeed;
-    
+
     // Draw the zombie
     drawZombie(zombies[i]);
-    
+
     // Check if the zombie is off-screen
     if (zombies[i].y > height + 50) {
       // Remove this zombie from the array
@@ -358,7 +388,7 @@ function updateZombies() {
 function updateLaneYPositions() {
   // Reset lane Y positions if no zombies are in that lane
   laneLastZombieY = [height + 100, height + 100]; 
-  
+
   // Find the furthest down zombie in each lane
   for (let i = 0; i < zombies.length; i++) {
     let laneIdx = zombies[i].laneIndex;
@@ -379,13 +409,13 @@ function drawZombie(zombie) {
   fill(50, 200, 50); // Green color
   noStroke();
   rect(zombie.x, zombie.y, zombie.width, zombie.height);
-  
+
   // Draw zombie features (dark spots)
   fill(30, 130, 30);
   // Eyes
   ellipse(zombie.x - 10, zombie.y + 15, 8, 8);
   ellipse(zombie.x + 10, zombie.y + 15, 8, 8);
-  
+
   // Mouth
   rect(zombie.x, zombie.y + 30, 20, 5);
 }
@@ -407,7 +437,72 @@ function displayDebugInfo() {
   text("Last Shot: " + (millis() - lastShotTime) + "ms ago", 10, 170);
   text("Lane 0 Last Y: " + int(laneLastZombieY[0]), 10, 190);
   text("Lane 1 Last Y: " + int(laneLastZombieY[1]), 10, 210);
-  
+  text("Followers: " + followers.length, 10, 230);
+
   // Reset text alignment
   textAlign(CENTER, CENTER);
+}
+
+function drawSurvivor(survivor) {
+  fill(255, 255, 0); // Yellow
+  noStroke();
+  rect(survivor.x, survivor.y, survivor.width, survivor.height);
+}
+
+function updateSurvivors() {
+  for (let i = survivors.length - 1; i >= 0; i--) {
+    let survivor = survivors[i];
+    survivor.y += zombieSpeed;
+    drawSurvivor(survivor);
+    if (survivor.y > height + 50) {
+      survivors.splice(i, 1);
+    }
+
+    //Check for collision with player
+    if (!survivor.collected && checkCollision(player, survivor)) {
+      survivor.collected = true;
+      addFollower();
+      survivors.splice(i, 1);
+    }
+  }
+}
+
+function checkCollision(rect1, rect2) {
+    return (rect1.x + rect1.width / 2 > rect2.x - rect2.width / 2 &&
+            rect1.x - rect1.width / 2 < rect2.x + rect2.width / 2 &&
+            rect1.y + rect1.height / 2 > rect2.y - rect2.height / 2 &&
+            rect1.y - rect1.height / 2 < rect2.y + rect2.height / 2);
+}
+
+function addFollower() {
+    if (followers.length < maxFollowers) {
+        followers.push({
+            x: lanes[player.laneIndex] - 20,
+            y: playerYPosition,
+            width: 30,
+            height: 60
+        });
+    }
+}
+
+function drawFollowers() {
+    for (let i = 0; i < followers.length; i++) {
+        let follower = followers[i];
+        fill(255, 255, 0); // Yellow follower
+        noStroke();
+        rect(follower.x, follower.y, follower.width, follower.height);
+    }
+}
+
+
+function draw() {
+  background(50);
+  drawLanes();
+  updateZombies();
+  updateSurvivors();
+  drawPlayer();
+  controlledZombieSpawn();
+  updateBullets();
+  autoFireBullet();
+  if (debugMode) displayDebugInfo();
 }
