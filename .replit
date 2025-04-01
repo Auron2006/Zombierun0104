@@ -19,4 +19,4 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx http-server -p 3000"
+args = "python3 -m http.server 3000"

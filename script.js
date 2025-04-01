@@ -13,6 +13,12 @@ let lastSpawnTime = 0; // Track when we last spawned a zombie
 let minSpawnInterval = 1000; // Minimum time between spawns (milliseconds)
 let laneLastZombieY = []; // Will be initialized in setup
 
+// Bullet variables
+let bullets = [];
+let bulletSpeed = 5; // Pixels per frame
+let lastShotTime = 0; // Track when the player last fired
+let shotInterval = 500; // Time between shots (milliseconds) - 0.5 seconds
+
 // Debug variables
 let debugMode = true;
 let frameCounter = 0;
@@ -91,10 +97,65 @@ function draw() {
   // Check if it's time to spawn a new zombie
   controlledZombieSpawn();
   
+  // Update and draw bullets
+  updateBullets();
+  
+  // Auto-fire bullets at regular intervals
+  autoFireBullet();
+  
   // Show debug info on screen
   if (debugMode) {
     displayDebugInfo();
   }
+}
+
+// Auto-fire bullets at regular intervals
+function autoFireBullet() {
+  let currentTime = millis();
+  
+  // Check if enough time has passed since the last shot
+  if (currentTime - lastShotTime >= shotInterval) {
+    // Create a new bullet at the player's position
+    let bullet = {
+      x: lanes[player.laneIndex],
+      y: playerYPosition - player.height/2, // Start at top of player
+      width: 10,
+      height: 20,
+      laneIndex: player.laneIndex
+    };
+    
+    // Add bullet to the array
+    bullets.push(bullet);
+    lastShotTime = currentTime;
+    
+    if (debugMode) console.log("Player fired bullet in lane", player.laneIndex);
+  }
+}
+
+// Update all bullets and remove those that go off-screen
+function updateBullets() {
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    // Move the bullet up
+    bullets[i].y -= bulletSpeed;
+    
+    // Draw the bullet
+    drawBullet(bullets[i]);
+    
+    // Check if the bullet is off-screen
+    if (bullets[i].y < -bullets[i].height) {
+      // Remove this bullet from the array
+      if (debugMode) console.log("Removed bullet that went off-screen");
+      bullets.splice(i, 1);
+    }
+  }
+}
+
+// Draw a single bullet
+function drawBullet(bullet) {
+  // Draw the bullet (yellow)
+  fill(255, 255, 0); // Yellow color
+  noStroke();
+  rect(bullet.x, bullet.y, bullet.width, bullet.height);
 }
 
 function drawLanes() {
@@ -298,9 +359,11 @@ function displayDebugInfo() {
   text("Frame: " + frameCounter, 10, 30);
   text("Player Lane: " + player.laneIndex, 10, 50);
   text("Zombies: " + zombies.length, 10, 70);
-  text("Last Spawn: " + (millis() - lastSpawnTime) + "ms ago", 10, 90);
-  text("Lane 0 Last Y: " + int(laneLastZombieY[0]), 10, 110);
-  text("Lane 1 Last Y: " + int(laneLastZombieY[1]), 10, 130);
+  text("Bullets: " + bullets.length, 10, 90);
+  text("Last Spawn: " + (millis() - lastSpawnTime) + "ms ago", 10, 110);
+  text("Last Shot: " + (millis() - lastShotTime) + "ms ago", 10, 130);
+  text("Lane 0 Last Y: " + int(laneLastZombieY[0]), 10, 150);
+  text("Lane 1 Last Y: " + int(laneLastZombieY[1]), 10, 170);
   
   // Reset text alignment
   textAlign(CENTER, CENTER);
