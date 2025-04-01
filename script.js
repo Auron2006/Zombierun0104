@@ -11,7 +11,7 @@ let zombies = [];
 let zombieSpeed = 3; // Pixels per frame
 let lastSpawnTime = 0; // Track when we last spawned a zombie
 let minSpawnInterval = 1000; // Minimum time between spawns (milliseconds)
-let laneLastZombieY = [height + 100, height + 100]; // Initialize to values that allow spawning
+let laneLastZombieY = []; // Will be initialized in setup
 
 // Debug variables
 let debugMode = true;
