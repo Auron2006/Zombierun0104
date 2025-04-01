@@ -6,18 +6,38 @@ let player = {
   laneIndex: 0 // 0 for left lane, 1 for right lane
 };
 
-// Lane positions (horizontal) - only 2 lanes for left/right swiping
-const lanes = [100, 300]; // Left and right lane x-positions (spaced further apart)
-const playerYPosition = 500; // Fixed vertical position near the bottom
+// Will be calculated in setup
+let lanes = []; 
+let playerYPosition; 
+let laneWidth;
 
 function setup() {
-  // Create canvas and place it in the game-container
-  let canvas = createCanvas(400, 600);
+  // Create responsive canvas sized for mobile
+  let screenWidth = min(windowWidth, 414); // iPhone-like width max
+  let screenHeight = min(windowHeight, 896); // iPhone-like height max
+  let canvas = createCanvas(screenWidth, screenHeight);
   canvas.parent('game-container');
+  
+  // Calculate responsive values
+  laneWidth = screenWidth / 2;
+  lanes = [laneWidth/2, laneWidth + laneWidth/2]; // Center of each lane
+  playerYPosition = screenHeight * 0.8; // Position at bottom 20%
   
   // Set basic drawing properties
   rectMode(CENTER);
   textAlign(CENTER, CENTER);
+}
+
+// Ensure the game resizes properly when window size changes
+function windowResized() {
+  let screenWidth = min(windowWidth, 414); // iPhone-like width max
+  let screenHeight = min(windowHeight, 896); // iPhone-like height max
+  resizeCanvas(screenWidth, screenHeight);
+  
+  // Recalculate responsive values
+  laneWidth = screenWidth / 2;
+  lanes = [laneWidth/2, laneWidth + laneWidth/2]; // Center of each lane
+  playerYPosition = screenHeight * 0.8;
 }
 
 function draw() {
@@ -32,17 +52,32 @@ function draw() {
 }
 
 function drawLanes() {
-  // Draw lane markers or guides
-  stroke(255, 255, 255, 100); // Semi-transparent white
-  strokeWeight(2);
+  // Draw a road with 2 lanes that fill the screen width
   
-  // Left lane line
-  line(lanes[0] - 40, 0, lanes[0] - 40, height);
-  line(lanes[0] + 40, 0, lanes[0] + 40, height);
+  // Fill the road
+  fill(70); // Dark gray for road background
+  noStroke();
+  rect(width/2, height/2, width, height);
   
-  // Right lane line
-  line(lanes[1] - 40, 0, lanes[1] - 40, height);
-  line(lanes[1] + 40, 0, lanes[1] + 40, height);
+  // Draw center divider between lanes
+  stroke(255, 255, 0); // Yellow
+  strokeWeight(10);
+  setLineDash([30, 20]); // Dashed line
+  line(width/2, 0, width/2, height);
+  setLineDash([]); // Reset to solid line
+  
+  // Draw outer lane borders
+  stroke(255); // White
+  strokeWeight(5);
+  // Left edge
+  line(0, 0, 0, height);
+  // Right edge
+  line(width, 0, width, height);
+}
+
+// Helper function to create dashed lines
+function setLineDash(list) {
+  drawingContext.setLineDash(list);
 }
 
 function drawPlayer() {

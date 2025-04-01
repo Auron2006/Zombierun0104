@@ -8,10 +8,23 @@ html, body {
   justify-content: center;
   align-items: center;
   background-color: #4CAF50; /* Green background color */
+  overflow: hidden; /* Prevent scrolling */
+  touch-action: none; /* Prevent browser handling of touch gestures */
 }
 
 #game-container {
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 100%;
+  height: 100%;
+  max-width: 414px; /* iPhone-like max width */
+  max-height: 896px; /* iPhone-like max height */
+}
+
+canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
 }
