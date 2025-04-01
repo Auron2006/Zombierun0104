@@ -127,20 +127,35 @@ function autoFireBullet() {
 
   // Check if enough time has passed since the last shot
   if (currentTime - lastShotTime >= shotInterval) {
-    // Create a new bullet at the player's position
-    let bullet = {
-      x: lanes[player.laneIndex],
-      y: playerYPosition - player.height/2, // Start at top of player
-      width: 10,
-      height: 20,
-      laneIndex: player.laneIndex
-    };
-
-    // Add bullet to the array
-    bullets.push(bullet);
+    // Player fires
+    fireBulletFrom(lanes[player.laneIndex], playerYPosition - player.height/2, player.laneIndex);
+    
+    // Followers also fire bullets
+    for (let i = 0; i < followers.length; i++) {
+      let follower = followers[i];
+      fireBulletFrom(follower.x, follower.y - follower.height/2, follower.laneIndex);
+    }
+    
     lastShotTime = currentTime;
+  }
+}
 
-    if (debugMode) console.log("Player fired bullet in lane", player.laneIndex);
+// Create and fire a bullet from a specific position
+function fireBulletFrom(x, y, laneIndex) {
+  // Create a new bullet
+  let bullet = {
+    x: x,
+    y: y,
+    width: 10,
+    height: 20,
+    laneIndex: laneIndex
+  };
+
+  // Add bullet to the array
+  bullets.push(bullet);
+  
+  if (debugMode && bullets.length % 5 === 0) {
+    console.log("Total bullets in flight:", bullets.length);
   }
 }
 
@@ -461,59 +476,147 @@ function updateSurvivors() {
     let survivor = survivors[i];
     survivor.y += zombieSpeed;
     drawSurvivor(survivor);
-    if (survivor.y > height + 50) {
-      survivors.splice(i, 1);
-    }
-
-    //Check for collision with player
-    if (!survivor.collected && checkCollision(player, survivor)) {
-      if (debugMode) console.log("Survivor collected in lane", survivor.laneIndex);
-      survivor.collected = true;
+    
+    // Create a player object with current position for collision checking
+    let playerObj = {
+      x: lanes[player.laneIndex],
+      y: playerYPosition,
+      width: player.width,
+      height: player.height
+    };
+    
+    // Check for collision with player
+    if (checkCollision(playerObj, survivor)) {
+      if (debugMode) console.log("Survivor collected! Lane:", survivor.laneIndex);
       addFollower();
+      survivors.splice(i, 1);
+      continue;
+    }
+    
+    // Remove survivors that go off-screen
+    if (survivor.y > height + 50) {
+      if (debugMode) console.log("Survivor left the screen without being collected");
       survivors.splice(i, 1);
     }
   }
 }
 
 function checkCollision(rect1, rect2) {
-    // Simple distance-based collision for the player and survivor
-    let dx = Math.abs(rect1.x - rect2.x);
-    let dy = Math.abs(rect1.y - rect2.y);
-    let combinedHalfWidth = (rect1.width + rect2.width) / 2;
-    let combinedHalfHeight = (rect1.height + rect2.height) / 2;
+    // Calculate centers
+    let r1CenterX = rect1.x;
+    let r1CenterY = rect1.y;
+    let r2CenterX = rect2.x;
+    let r2CenterY = rect2.y;
     
-    return (dx < combinedHalfWidth && dy < combinedHalfHeight);
+    // Calculate half dimensions
+    let r1HalfWidth = rect1.width / 2;
+    let r1HalfHeight = rect1.height / 2;
+    let r2HalfWidth = rect2.width / 2;
+    let r2HalfHeight = rect2.height / 2;
+    
+    // Calculate distance between centers
+    let dx = Math.abs(r1CenterX - r2CenterX);
+    let dy = Math.abs(r1CenterY - r2CenterY);
+    
+    // Calculate overlap thresholds
+    let widthOverlap = r1HalfWidth + r2HalfWidth;
+    let heightOverlap = r1HalfHeight + r2HalfHeight;
+    
+    // Debug visualization if needed
+    if (debugMode && frameCounter % 60 === 0) {
+        if (dx < widthOverlap && dy < heightOverlap) {
+            console.log("Potential collision detected, dx:", dx, "dy:", dy);
+            console.log("Overlap thresholds - width:", widthOverlap, "height:", heightOverlap);
+        }
+    }
+    
+    // Check if objects overlap on both axes
+    return (dx < widthOverlap && dy < heightOverlap);
 }
 
 function addFollower() {
     if (followers.length < maxFollowers) {
+        // Add a new follower
         followers.push({
-            x: lanes[player.laneIndex] - 20,
-            y: playerYPosition,
+            x: lanes[player.laneIndex],
+            y: playerYPosition + 60, // Position behind the player
             width: 30,
-            height: 60
+            height: 60,
+            laneIndex: player.laneIndex
         });
+        
+        if (debugMode) console.log("Added follower! Total followers:", followers.length);
+    } else {
+        if (debugMode) console.log("Max followers reached:", maxFollowers);
     }
 }
 
 function drawFollowers() {
+    // First update follower positions to follow the player
+    updateFollowerPositions();
+    
+    // Then draw all followers
     for (let i = 0; i < followers.length; i++) {
         let follower = followers[i];
-        fill(255, 255, 0); // Yellow follower
+        fill(255, 200, 0); // Bright yellow follower
         noStroke();
         rect(follower.x, follower.y, follower.width, follower.height);
+        
+        // Draw a simple face to distinguish from regular survivors
+        fill(0);
+        ellipse(follower.x - 7, follower.y - 10, 5, 5); // Left eye
+        ellipse(follower.x + 7, follower.y - 10, 5, 5); // Right eye
+        arc(follower.x, follower.y, 12, 8, 0, PI); // Smile
     }
+}
+
+function updateFollowerPositions() {
+    for (let i = 0; i < followers.length; i++) {
+        // Target position based on formation
+        let targetX = lanes[player.laneIndex];
+        let targetY = playerYPosition + 60 + (i * 40); // Stack followers behind player
+        
+        // Gradually move followers toward their target positions
+        followers[i].x = lerp(followers[i].x, targetX, 0.1);
+        followers[i].y = lerp(followers[i].y, targetY, 0.1);
+        
+        // Update follower's lane index to match player
+        followers[i].laneIndex = player.laneIndex;
+    }
+}
+
+// Linear interpolation helper
+function lerp(start, end, amt) {
+    return start * (1 - amt) + end * amt;
 }
 
 
 function draw() {
+  // Clear the background
   background(50);
+  
+  // Increment frame counter for debugging
+  frameCounter++;
+  
+  // Draw game elements
   drawLanes();
   updateZombies();
   updateSurvivors();
   drawPlayer();
+  
+  // Handle game logic
   controlledZombieSpawn();
   updateBullets();
   autoFireBullet();
-  if (debugMode) displayDebugInfo();
+  
+  // Display debug info if enabled
+  if (debugMode) {
+    displayDebugInfo();
+    
+    // Periodically log game state
+    if (frameCounter % 300 === 0) { // Every 5 seconds approximately
+      console.log("Game state - Score:", score, "Zombies:", zombies.length, 
+                 "Survivors:", survivors.length, "Followers:", followers.length);
+    }
+  }
 }
