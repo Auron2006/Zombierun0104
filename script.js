@@ -51,6 +51,9 @@ function setup() {
 
   // Initialize lane Y positions to allow zombies to spawn immediately
   laneLastZombieY = [screenHeight + 100, screenHeight + 100];
+  
+  // Force an early survivor spawn for testing
+  spawnSurvivorInLane(0);
 
   // Set basic drawing properties
   rectMode(CENTER);
@@ -447,6 +450,10 @@ function drawSurvivor(survivor) {
   fill(255, 255, 0); // Yellow
   noStroke();
   rect(survivor.x, survivor.y, survivor.width, survivor.height);
+  
+  if (debugMode && frameCounter % 60 === 0) {
+    console.log("Survivor position:", survivor.x, survivor.y, "in lane", survivor.laneIndex);
+  }
 }
 
 function updateSurvivors() {
@@ -460,6 +467,7 @@ function updateSurvivors() {
 
     //Check for collision with player
     if (!survivor.collected && checkCollision(player, survivor)) {
+      if (debugMode) console.log("Survivor collected in lane", survivor.laneIndex);
       survivor.collected = true;
       addFollower();
       survivors.splice(i, 1);
@@ -468,10 +476,13 @@ function updateSurvivors() {
 }
 
 function checkCollision(rect1, rect2) {
-    return (rect1.x + rect1.width / 2 > rect2.x - rect2.width / 2 &&
-            rect1.x - rect1.width / 2 < rect2.x + rect2.width / 2 &&
-            rect1.y + rect1.height / 2 > rect2.y - rect2.height / 2 &&
-            rect1.y - rect1.height / 2 < rect2.y + rect2.height / 2);
+    // Simple distance-based collision for the player and survivor
+    let dx = Math.abs(rect1.x - rect2.x);
+    let dy = Math.abs(rect1.y - rect2.y);
+    let combinedHalfWidth = (rect1.width + rect2.width) / 2;
+    let combinedHalfHeight = (rect1.height + rect2.height) / 2;
+    
+    return (dx < combinedHalfWidth && dy < combinedHalfHeight);
 }
 
 function addFollower() {
