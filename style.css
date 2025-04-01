@@ -1,9 +1,17 @@
 
-html {
+html, body {
   height: 100%;
   width: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #4CAF50; /* Green background color */
 }
 
-body {
-  background-color: #4CAF50; /* Green background color */
+#game-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
