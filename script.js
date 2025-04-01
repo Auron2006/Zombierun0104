@@ -12,7 +12,7 @@ let zombiesDestroyed = 0;
 // Boss zombie variables
 let lastBossSpawnTime = 0;
 let bossSpawnInterval = 45000; // Spawn a boss every 45 seconds (45000ms)
-let bossZombieHealth = 5; // Boss takes 5 hits to destroy
+let bossZombieHealth = 10; // Boss takes 10 hits to destroy (doubled from 5)
 
 // Zombie variables
 let zombies = [];
@@ -224,12 +224,15 @@ function checkBulletZombieCollision(bullet) {
             zombies.splice(i, 1);
           }
         } else {
-          // Regular zombie - destroyed in one hit
-          score += 10;
-          zombiesDestroyed++;
+          // Regular zombie - now takes 2 hits to destroy
+          zombie.health--;
           
-          // Remove the zombie
-          zombies.splice(i, 1);
+          if (zombie.health <= 0) {
+            score += 10;
+            zombiesDestroyed++;
+            // Remove the zombie
+            zombies.splice(i, 1);
+          }
         }
 
         // Return true to indicate collision occurred
@@ -386,7 +389,7 @@ function spawnZombieInLane(laneIndex, isBoss = false) {
     height: isBoss ? 100 : 70,
     laneIndex: laneIndex, // Store the lane index (0 or 1)
     isBoss: isBoss,
-    health: isBoss ? bossZombieHealth : 1, // Boss zombies have more health
+    health: isBoss ? bossZombieHealth : 2, // Regular zombies now have 2 health, boss has 10
     speed: isBoss ? zombieSpeed * 0.7 : zombieSpeed // Boss zombies are slower
   };
 
