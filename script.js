@@ -11,7 +11,7 @@ let zombies = [];
 let zombieSpeed = 3; // Pixels per frame
 let lastSpawnTime = 0; // Track when we last spawned a zombie
 let minSpawnInterval = 1000; // Minimum time between spawns (milliseconds)
-let laneLastZombieY = [-100, -100]; // Track Y position of last zombie in each lane
+let laneLastZombieY = [height + 100, height + 100]; // Initialize to values that allow spawning
 
 // Debug variables
 let debugMode = true;
@@ -33,6 +33,9 @@ function setup() {
   laneWidth = screenWidth / 2;
   lanes = [laneWidth/2, laneWidth + laneWidth/2]; // Center of each lane
   playerYPosition = screenHeight * 0.8; // Position at bottom 20%
+  
+  // Initialize lane Y positions to allow zombies to spawn immediately
+  laneLastZombieY = [screenHeight + 100, screenHeight + 100];
   
   // Set basic drawing properties
   rectMode(CENTER);
@@ -202,9 +205,13 @@ function controlledZombieSpawn() {
 
 // Check if a lane is clear enough to spawn a new zombie
 function isLaneClearForSpawn(laneIndex) {
-  // Check if the most recent zombie in this lane is far enough down the screen
-  // (at least halfway down the screen as suggested)
-  return laneLastZombieY[laneIndex] > height * 0.5;
+  // If no zombies in lane, or all zombies are below halfway mark, we can spawn
+  if (laneLastZombieY[laneIndex] >= height * 0.5 || laneLastZombieY[laneIndex] > height) {
+    return true;
+  }
+  
+  // If zombies exist but are still near top, don't spawn in this lane
+  return false;
 }
 
 // Create a new zombie at the top of the screen in the specified lane
@@ -225,16 +232,13 @@ function spawnZombieInLane(laneIndex) {
 
 // Update all zombies and remove those that go off-screen
 function updateZombies() {
+  // First update each lane's furthest zombie Y position
+  updateLaneYPositions();
+  
   // Move zombies down and draw them
   for (let i = zombies.length - 1; i >= 0; i--) {
     // Move the zombie down
     zombies[i].y += zombieSpeed;
-    
-    // Update the last zombie Y position for this lane if this zombie is further down
-    let laneIdx = zombies[i].laneIndex;
-    if (zombies[i].y > laneLastZombieY[laneIdx]) {
-      laneLastZombieY[laneIdx] = zombies[i].y;
-    }
     
     // Draw the zombie
     drawZombie(zombies[i]);
@@ -243,14 +247,26 @@ function updateZombies() {
     if (zombies[i].y > height + 50) {
       // Remove this zombie from the array
       if (debugMode) console.log("Removed zombie that went off-screen");
-      
-      // If this was the last zombie in its lane, reset the Y tracker
-      if (zombies[i].y >= laneLastZombieY[zombies[i].laneIndex]) {
-        // Set to a value that will allow new zombies to spawn
-        laneLastZombieY[zombies[i].laneIndex] = height + 100;
-      }
-      
       zombies.splice(i, 1);
+    }
+  }
+}
+
+// Update the tracking of which zombie is furthest down in each lane
+function updateLaneYPositions() {
+  // Reset lane Y positions if no zombies are in that lane
+  laneLastZombieY = [height + 100, height + 100]; 
+  
+  // Find the furthest down zombie in each lane
+  for (let i = 0; i < zombies.length; i++) {
+    let laneIdx = zombies[i].laneIndex;
+    // If this zombie is above the screen, it's the closest to spawning position
+    if (zombies[i].y < 0) {
+      laneLastZombieY[laneIdx] = zombies[i].y;
+    }
+    // If this zombie is on screen and closer to top than current tracker value
+    else if (zombies[i].y < laneLastZombieY[laneIdx] && zombies[i].y >= 0) {
+      laneLastZombieY[laneIdx] = zombies[i].y;
     }
   }
 }
