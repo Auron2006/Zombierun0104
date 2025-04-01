@@ -6,6 +6,11 @@ let player = {
   laneIndex: 0 // 0 for left lane, 1 for right lane
 };
 
+// Zombie variables
+let zombies = [];
+let zombieSpeed = 3; // Pixels per frame
+let zombieSpawnRate = 0.02; // Probability of spawning a zombie each frame
+
 // Will be calculated in setup
 let lanes = []; 
 let playerYPosition; 
@@ -47,8 +52,16 @@ function draw() {
   // Draw the lanes
   drawLanes();
   
+  // Update and draw zombies
+  updateZombies();
+  
   // Draw the player
   drawPlayer();
+  
+  // Randomly spawn new zombies
+  if (random() < zombieSpawnRate) {
+    spawnZombie();
+  }
 }
 
 function drawLanes() {
@@ -104,6 +117,55 @@ function touchStarted() {
   // If touch is on right half of screen, go right lane
   if (mouseX < width/2) {
     player.laneIndex = 0; // Left lane
+
+// Create a new zombie at the top of the screen in a random lane
+function spawnZombie() {
+  let zombie = {
+    x: lanes[floor(random(2))], // Random lane (0 or 1)
+    y: -50, // Start above the screen
+    width: 40,
+    height: 70,
+    laneIndex: floor(random(2)) // Store the lane index (0 or 1)
+  };
+  
+  zombies.push(zombie);
+}
+
+// Update all zombies and remove those that go off-screen
+function updateZombies() {
+  // Move zombies down and draw them
+  for (let i = zombies.length - 1; i >= 0; i--) {
+    // Move the zombie down
+    zombies[i].y += zombieSpeed;
+    
+    // Draw the zombie
+    drawZombie(zombies[i]);
+    
+    // Check if the zombie is off-screen
+    if (zombies[i].y > height + 50) {
+      // Remove this zombie from the array
+      zombies.splice(i, 1);
+    }
+  }
+}
+
+// Draw a single zombie
+function drawZombie(zombie) {
+  // Draw the zombie body (green)
+  fill(50, 200, 50); // Green color
+  noStroke();
+  rect(zombie.x, zombie.y, zombie.width, zombie.height);
+  
+  // Draw zombie features (dark spots)
+  fill(30, 130, 30);
+  // Eyes
+  ellipse(zombie.x - 10, zombie.y - 15, 8, 8);
+  ellipse(zombie.x + 10, zombie.y - 15, 8, 8);
+  
+  // Mouth
+  rect(zombie.x, zombie.y + 5, 20, 5);
+}
+
   } else {
     player.laneIndex = 1; // Right lane
   }
