@@ -29,7 +29,7 @@ let shotInterval = 500; // Time between shots (milliseconds) - 0.5 seconds
 
 // Survivor variables
 let survivors = [];
-let survivorSpawnChance = 0.05; // 5% chance to spawn a survivor (reduced from 20%)
+let survivorSpawnChance = 0.01; // 1% chance to spawn a survivor (similar to boss frequency)
 let maxFollowers = 3;
 let followers = [];
 
