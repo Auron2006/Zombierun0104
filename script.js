@@ -6,6 +6,10 @@ let player = {
   laneIndex: 0 // 0 for left lane, 1 for right lane
 };
 
+// Score tracking
+let score = 0;
+let zombiesDestroyed = 0;
+
 // Zombie variables
 let zombies = [];
 let zombieSpeed = 3; // Pixels per frame
@@ -132,7 +136,7 @@ function autoFireBullet() {
   }
 }
 
-// Update all bullets and remove those that go off-screen
+// Update all bullets and remove those that go off-screen or hit zombies
 function updateBullets() {
   for (let i = bullets.length - 1; i >= 0; i--) {
     // Move the bullet up
@@ -141,13 +145,50 @@ function updateBullets() {
     // Draw the bullet
     drawBullet(bullets[i]);
     
-    // Check if the bullet is off-screen
-    if (bullets[i].y < -bullets[i].height) {
+    // Check for collisions with zombies
+    let bulletHitZombie = checkBulletZombieCollision(bullets[i]);
+    
+    // Check if the bullet is off-screen or hit a zombie
+    if (bullets[i].y < -bullets[i].height || bulletHitZombie) {
       // Remove this bullet from the array
-      if (debugMode) console.log("Removed bullet that went off-screen");
+      if (bullets[i].y < -bullets[i].height && debugMode) {
+        console.log("Removed bullet that went off-screen");
+      }
       bullets.splice(i, 1);
     }
   }
+}
+
+// Check if a bullet collides with any zombie
+function checkBulletZombieCollision(bullet) {
+  for (let i = zombies.length - 1; i >= 0; i--) {
+    let zombie = zombies[i];
+    
+    // Only check collisions in the same lane
+    if (zombie.laneIndex === bullet.laneIndex) {
+      // Calculate collision based on rectangle overlap
+      if (
+        bullet.y - bullet.height/2 < zombie.y + zombie.height/2 && 
+        bullet.y + bullet.height/2 > zombie.y - zombie.height/2
+      ) {
+        // Collision detected! Destroy the zombie
+        if (debugMode) console.log("Bullet hit zombie in lane", zombie.laneIndex);
+        
+        // Increment score and zombies destroyed count
+        score += 10;
+        zombiesDestroyed++;
+        
+        // Remove the zombie
+        zombies.splice(i, 1);
+        
+        // Return true to indicate collision occurred
+        return true;
+      }
+    }
+  }
+  
+  // No collision detected
+  return false;
 }
 
 // Draw a single bullet
@@ -360,10 +401,12 @@ function displayDebugInfo() {
   text("Player Lane: " + player.laneIndex, 10, 50);
   text("Zombies: " + zombies.length, 10, 70);
   text("Bullets: " + bullets.length, 10, 90);
-  text("Last Spawn: " + (millis() - lastSpawnTime) + "ms ago", 10, 110);
-  text("Last Shot: " + (millis() - lastShotTime) + "ms ago", 10, 130);
-  text("Lane 0 Last Y: " + int(laneLastZombieY[0]), 10, 150);
-  text("Lane 1 Last Y: " + int(laneLastZombieY[1]), 10, 170);
+  text("Score: " + score, 10, 110);
+  text("Zombies Destroyed: " + zombiesDestroyed, 10, 130);
+  text("Last Spawn: " + (millis() - lastSpawnTime) + "ms ago", 10, 150);
+  text("Last Shot: " + (millis() - lastShotTime) + "ms ago", 10, 170);
+  text("Lane 0 Last Y: " + int(laneLastZombieY[0]), 10, 190);
+  text("Lane 1 Last Y: " + int(laneLastZombieY[1]), 10, 210);
   
   // Reset text alignment
   textAlign(CENTER, CENTER);
