@@ -6,8 +6,8 @@ let player = {
   laneIndex: 0 // 0 for left lane, 1 for right lane
 };
 
-// Lane positions (horizontal)
-const lanes = [100, 250]; // Left and right lane x-positions
+// Lane positions (horizontal) - only 2 lanes for left/right swiping
+const lanes = [100, 300]; // Left and right lane x-positions (spaced further apart)
 const playerYPosition = 500; // Fixed vertical position near the bottom
 
 function setup() {
@@ -55,10 +55,24 @@ function drawPlayer() {
 }
 
 function keyPressed() {
-  // Handle lane switching with arrow keys
-  if (keyCode === LEFT_ARROW && player.laneIndex > 0) {
-    player.laneIndex--;
-  } else if (keyCode === RIGHT_ARROW && player.laneIndex < lanes.length - 1) {
-    player.laneIndex++;
+  // Handle lane switching with arrow keys (simulating swipe)
+  if (keyCode === LEFT_ARROW) {
+    player.laneIndex = 0; // Move to left lane
+  } else if (keyCode === RIGHT_ARROW) {
+    player.laneIndex = 1; // Move to right lane
   }
+}
+
+// Support touch for mobile devices (to simulate swipes)
+function touchStarted() {
+  // If touch is on left half of screen, go left lane
+  // If touch is on right half of screen, go right lane
+  if (mouseX < width/2) {
+    player.laneIndex = 0; // Left lane
+  } else {
+    player.laneIndex = 1; // Right lane
+  }
+  
+  // Prevent default behavior
+  return false;
 }
