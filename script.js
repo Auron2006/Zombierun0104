@@ -9,7 +9,9 @@ let player = {
 // Zombie variables
 let zombies = [];
 let zombieSpeed = 3; // Pixels per frame
-let zombieSpawnRate = 0.02; // Probability of spawning a zombie each frame
+let lastSpawnTime = 0; // Track when we last spawned a zombie
+let minSpawnInterval = 1000; // Minimum time between spawns (milliseconds)
+let laneLastZombieY = [-100, -100]; // Track Y position of last zombie in each lane
 
 // Debug variables
 let debugMode = true;
@@ -83,10 +85,8 @@ function draw() {
   // Draw the player
   drawPlayer();
   
-  // Randomly spawn new zombies
-  if (random() < zombieSpawnRate) {
-    spawnZombie();
-  }
+  // Check if it's time to spawn a new zombie
+  controlledZombieSpawn();
   
   // Show debug info on screen
   if (debugMode) {
@@ -167,11 +167,50 @@ function touchStarted() {
   return false;
 }
 
-// Create a new zombie at the top of the screen in a random lane
-function spawnZombie() {
-  let laneIndex = floor(random(2));
+// Control zombie spawning to ensure player has enough reaction time
+function controlledZombieSpawn() {
+  let currentTime = millis();
+  
+  // Check if minimum time has passed since last spawn
+  if (currentTime - lastSpawnTime < minSpawnInterval) {
+    return;
+  }
+  
+  // Determine which lane to spawn in (or if we should spawn at all)
+  let lane0Clear = isLaneClearForSpawn(0);
+  let lane1Clear = isLaneClearForSpawn(1);
+  
+  // If both lanes are occupied with zombies too close to the top, don't spawn
+  if (!lane0Clear && !lane1Clear) {
+    return;
+  }
+  
+  // Choose a lane that's clear for spawning
+  let laneIndex;
+  if (lane0Clear && lane1Clear) {
+    // Both lanes clear, choose randomly
+    laneIndex = floor(random(2));
+  } else {
+    // Only one lane is clear, choose that one
+    laneIndex = lane0Clear ? 0 : 1;
+  }
+  
+  // Spawn the zombie
+  spawnZombieInLane(laneIndex);
+  lastSpawnTime = currentTime;
+}
+
+// Check if a lane is clear enough to spawn a new zombie
+function isLaneClearForSpawn(laneIndex) {
+  // Check if the most recent zombie in this lane is far enough down the screen
+  // (at least halfway down the screen as suggested)
+  return laneLastZombieY[laneIndex] > height * 0.5;
+}
+
+// Create a new zombie at the top of the screen in the specified lane
+function spawnZombieInLane(laneIndex) {
   let zombie = {
-    x: lanes[laneIndex], // Random lane (0 or 1)
+    x: lanes[laneIndex],
     y: -50, // Start above the screen
     width: 40,
     height: 70,
@@ -179,6 +218,8 @@ function spawnZombie() {
   };
   
   zombies.push(zombie);
+  laneLastZombieY[laneIndex] = zombie.y; // Update the Y position tracker
+  
   if (debugMode) console.log("Spawned zombie in lane", laneIndex);
 }
 
@@ -189,6 +230,12 @@ function updateZombies() {
     // Move the zombie down
     zombies[i].y += zombieSpeed;
     
+    // Update the last zombie Y position for this lane if this zombie is further down
+    let laneIdx = zombies[i].laneIndex;
+    if (zombies[i].y > laneLastZombieY[laneIdx]) {
+      laneLastZombieY[laneIdx] = zombies[i].y;
+    }
+    
     // Draw the zombie
     drawZombie(zombies[i]);
     
@@ -196,6 +243,13 @@ function updateZombies() {
     if (zombies[i].y > height + 50) {
       // Remove this zombie from the array
       if (debugMode) console.log("Removed zombie that went off-screen");
+      
+      // If this was the last zombie in its lane, reset the Y tracker
+      if (zombies[i].y >= laneLastZombieY[zombies[i].laneIndex]) {
+        // Set to a value that will allow new zombies to spawn
+        laneLastZombieY[zombies[i].laneIndex] = height + 100;
+      }
+      
       zombies.splice(i, 1);
     }
   }
@@ -228,6 +282,9 @@ function displayDebugInfo() {
   text("Frame: " + frameCounter, 10, 30);
   text("Player Lane: " + player.laneIndex, 10, 50);
   text("Zombies: " + zombies.length, 10, 70);
+  text("Last Spawn: " + (millis() - lastSpawnTime) + "ms ago", 10, 90);
+  text("Lane 0 Last Y: " + int(laneLastZombieY[0]), 10, 110);
+  text("Lane 1 Last Y: " + int(laneLastZombieY[1]), 10, 130);
   
   // Reset text alignment
   textAlign(CENTER, CENTER);
