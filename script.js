@@ -507,6 +507,9 @@ function drawZombie(zombie) {
 
     // Mouth
     rect(zombie.x, zombie.y + 30, 20, 5);
+    
+    // Health bar for regular zombies
+    drawRegularZombieHealthBar(zombie);
   }
 }
 
@@ -524,6 +527,25 @@ function drawZombieHealthBar(zombie) {
   fill(255, 0, 0);
   rect(zombie.x - barWidth/2 + (barWidth * healthPercentage)/2, 
        zombie.y - zombie.height/2 - 15, 
+       barWidth * healthPercentage, 
+       barHeight);
+}
+
+// Draw health bar for regular zombies
+function drawRegularZombieHealthBar(zombie) {
+  let barWidth = zombie.width * 1.1;
+  let barHeight = 6;
+  // Regular zombies start with 2 health
+  let healthPercentage = zombie.health / 2;
+  
+  // Health bar background
+  fill(100);
+  rect(zombie.x, zombie.y - zombie.height/2 - 10, barWidth, barHeight);
+  
+  // Health remaining
+  fill(0, 255, 0); // Green for regular zombies
+  rect(zombie.x - barWidth/2 + (barWidth * healthPercentage)/2, 
+       zombie.y - zombie.height/2 - 10, 
        barWidth * healthPercentage, 
        barHeight);
 }
