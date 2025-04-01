@@ -24,7 +24,7 @@ let shotInterval = 500; // Time between shots (milliseconds) - 0.5 seconds
 
 // Survivor variables
 let survivors = [];
-let survivorSpawnChance = 0.2; // 20% chance to spawn a survivor
+let survivorSpawnChance = 0.05; // 5% chance to spawn a survivor (reduced from 20%)
 let maxFollowers = 3;
 let followers = [];
 
@@ -51,9 +51,6 @@ function setup() {
 
   // Initialize lane Y positions to allow zombies to spawn immediately
   laneLastZombieY = [screenHeight + 100, screenHeight + 100];
-  
-  // Force an early survivor spawn for testing
-  spawnSurvivorInLane(0);
 
   // Set basic drawing properties
   rectMode(CENTER);
