@@ -9,6 +9,11 @@ let player = {
 let score = 0;
 let zombiesDestroyed = 0;
 
+// Boss zombie variables
+let lastBossSpawnTime = 0;
+let bossSpawnInterval = 45000; // Spawn a boss every 45 seconds (45000ms)
+let bossZombieHealth = 5; // Boss takes 5 hits to destroy
+
 // Zombie variables
 let zombies = [];
 let zombieSpeed = 3; // Pixels per frame
@@ -191,15 +196,38 @@ function checkBulletZombieCollision(bullet) {
         bullet.y - bullet.height/2 < zombie.y + zombie.height/2 && 
         bullet.y + bullet.height/2 > zombie.y - zombie.height/2
       ) {
-        // Collision detected! Destroy the zombie
+        // Collision detected! 
         if (debugMode) console.log("Bullet hit zombie in lane", zombie.laneIndex);
 
-        // Increment score and zombies destroyed count
-        score += 10;
-        zombiesDestroyed++;
+        if (zombie.isBoss) {
+          // Reduce boss health
+          zombie.health--;
+          
+          if (zombie.health <= 0) {
+            // Boss defeated!
+            if (debugMode) console.log("Boss zombie defeated!");
+            
+            // Increment score with bonus for boss and zombies destroyed count
+            score += 50; // Boss is worth more points
+            zombiesDestroyed++;
 
-        // Remove the zombie
-        zombies.splice(i, 1);
+            // Spawn a survivor as a reward
+            if (random() < 0.7) { // 70% chance of survivor from boss
+              spawnSurvivorInLane(zombie.laneIndex);
+              if (debugMode) console.log("Boss dropped a survivor!");
+            }
+            
+            // Remove the zombie
+            zombies.splice(i, 1);
+          }
+        } else {
+          // Regular zombie - destroyed in one hit
+          score += 10;
+          zombiesDestroyed++;
+          
+          // Remove the zombie
+          zombies.splice(i, 1);
+        }
 
         // Return true to indicate collision occurred
         return true;
@@ -347,19 +375,30 @@ function isLaneClearForSpawn(laneIndex) {
 }
 
 // Create a new zombie at the top of the screen in the specified lane
-function spawnZombieInLane(laneIndex) {
+function spawnZombieInLane(laneIndex, isBoss = false) {
   let zombie = {
     x: lanes[laneIndex],
     y: -50, // Start above the screen
-    width: 40,
-    height: 70,
-    laneIndex: laneIndex // Store the lane index (0 or 1)
+    width: isBoss ? 60 : 40, // Boss zombies are bigger
+    height: isBoss ? 100 : 70,
+    laneIndex: laneIndex, // Store the lane index (0 or 1)
+    isBoss: isBoss,
+    health: isBoss ? bossZombieHealth : 1, // Boss zombies have more health
+    speed: isBoss ? zombieSpeed * 0.7 : zombieSpeed // Boss zombies are slower
   };
 
   zombies.push(zombie);
   laneLastZombieY[laneIndex] = zombie.y; // Update the Y position tracker
 
-  if (debugMode) console.log("Spawned zombie in lane", laneIndex);
+  if (debugMode) console.log(isBoss ? "Spawned BOSS zombie in lane" : "Spawned zombie in lane", laneIndex);
+}
+
+// Spawn a boss zombie
+function spawnBossZombie() {
+  // Choose a random lane
+  let laneIndex = floor(random(2));
+  spawnZombieInLane(laneIndex, true);
+  lastBossSpawnTime = millis();
 }
 
 // Spawn a survivor pickup
@@ -384,8 +423,19 @@ function updateZombies() {
 
   // Move zombies down and draw them
   for (let i = zombies.length - 1; i >= 0; i--) {
-    // Move the zombie down
-    zombies[i].y += zombieSpeed;
+    // Move the zombie down (using its own speed if set)
+    zombies[i].y += zombies[i].speed || zombieSpeed;
+    
+    // For boss zombies, try to slowly move toward player's lane
+    if (zombies[i].isBoss && zombies[i].y > height * 0.3) {
+      // Only start chasing once boss is partway down screen
+      let targetLane = player.laneIndex;
+      if (zombies[i].laneIndex !== targetLane) {
+        // Gradually shift towards player's lane (visual effect only)
+        let targetX = lanes[targetLane];
+        zombies[i].x = lerp(zombies[i].x, targetX, 0.003);
+      }
+    }
 
     // Draw the zombie
     drawZombie(zombies[i]);
@@ -393,7 +443,7 @@ function updateZombies() {
     // Check if the zombie is off-screen
     if (zombies[i].y > height + 50) {
       // Remove this zombie from the array
-      if (debugMode) console.log("Removed zombie that went off-screen");
+      if (debugMode) console.log(zombies[i].isBoss ? "Boss zombie left screen" : "Removed zombie that went off-screen");
       zombies.splice(i, 1);
     }
   }
@@ -420,19 +470,56 @@ function updateLaneYPositions() {
 
 // Draw a single zombie
 function drawZombie(zombie) {
-  // Draw the zombie body (green)
-  fill(50, 200, 50); // Green color
-  noStroke();
-  rect(zombie.x, zombie.y, zombie.width, zombie.height);
+  if (zombie.isBoss) {
+    // Draw the boss zombie (red/orange)
+    fill(200, 80, 20); // Dark red/orange for boss
+    noStroke();
+    rect(zombie.x, zombie.y, zombie.width, zombie.height);
 
-  // Draw zombie features (dark spots)
-  fill(30, 130, 30);
-  // Eyes
-  ellipse(zombie.x - 10, zombie.y + 15, 8, 8);
-  ellipse(zombie.x + 10, zombie.y + 15, 8, 8);
+    // Draw boss zombie features
+    fill(150, 40, 10); // Darker red for features
+    // Eyes
+    ellipse(zombie.x - 15, zombie.y + 20, 12, 12);
+    ellipse(zombie.x + 15, zombie.y + 20, 12, 12);
 
-  // Mouth
-  rect(zombie.x, zombie.y + 30, 20, 5);
+    // Mouth
+    rect(zombie.x, zombie.y + 40, 30, 8);
+    
+    // Health bar
+    drawZombieHealthBar(zombie);
+  } else {
+    // Draw the regular zombie body (green)
+    fill(50, 200, 50); // Green color
+    noStroke();
+    rect(zombie.x, zombie.y, zombie.width, zombie.height);
+
+    // Draw zombie features (dark spots)
+    fill(30, 130, 30);
+    // Eyes
+    ellipse(zombie.x - 10, zombie.y + 15, 8, 8);
+    ellipse(zombie.x + 10, zombie.y + 15, 8, 8);
+
+    // Mouth
+    rect(zombie.x, zombie.y + 30, 20, 5);
+  }
+}
+
+// Draw health bar for boss zombies
+function drawZombieHealthBar(zombie) {
+  let barWidth = zombie.width * 1.2;
+  let barHeight = 8;
+  let healthPercentage = zombie.health / bossZombieHealth;
+  
+  // Health bar background
+  fill(100);
+  rect(zombie.x, zombie.y - zombie.height/2 - 15, barWidth, barHeight);
+  
+  // Health remaining
+  fill(255, 0, 0);
+  rect(zombie.x - barWidth/2 + (barWidth * healthPercentage)/2, 
+       zombie.y - zombie.height/2 - 15, 
+       barWidth * healthPercentage, 
+       barHeight);
 }
 
 // Display debug information on screen
@@ -453,6 +540,13 @@ function displayDebugInfo() {
   text("Lane 0 Last Y: " + int(laneLastZombieY[0]), 10, 190);
   text("Lane 1 Last Y: " + int(laneLastZombieY[1]), 10, 210);
   text("Followers: " + followers.length, 10, 230);
+  text("Next Boss: " + int((bossSpawnInterval - (millis() - lastBossSpawnTime))/1000) + "s", 10, 250);
+  
+  // Count active boss zombies
+  let bossCount = zombies.filter(z => z.isBoss).length;
+  if (bossCount > 0) {
+    text("Boss Zombies: " + bossCount, 10, 270);
+  }
 
   // Reset text alignment
   textAlign(CENTER, CENTER);
@@ -603,6 +697,7 @@ function draw() {
   
   // Handle game logic
   controlledZombieSpawn();
+  checkBossZombieSpawn();
   updateBullets();
   autoFireBullet();
   
@@ -615,5 +710,14 @@ function draw() {
       console.log("Game state - Score:", score, "Zombies:", zombies.length, 
                  "Survivors:", survivors.length, "Followers:", followers.length);
     }
+  }
+}
+
+// Check if it's time to spawn a boss zombie
+function checkBossZombieSpawn() {
+  let currentTime = millis();
+  if (currentTime - lastBossSpawnTime >= bossSpawnInterval) {
+    spawnBossZombie();
+    if (debugMode) console.log("Boss zombie spawned at time:", currentTime);
   }
 }
