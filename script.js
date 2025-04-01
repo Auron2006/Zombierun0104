@@ -57,6 +57,9 @@ function setup() {
   // Initialize lane Y positions to allow zombies to spawn immediately
   laneLastZombieY = [screenHeight + 100, screenHeight + 100];
 
+  // Spawn a boss zombie immediately for debugging
+  spawnBossZombie();
+  
   // Set basic drawing properties
   rectMode(CENTER);
   textAlign(CENTER, CENTER);
